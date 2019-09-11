@@ -1,5 +1,5 @@
 {
-  "name": "ydkjs-pdf",
+  "name": "ydkjs-to-pdf",
   "version": "0.0.1-alpha",
   "description": "PDF generator for You dont know JS",
   "main": "index.js",
