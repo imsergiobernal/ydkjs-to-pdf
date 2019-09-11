@@ -1,0 +1,10 @@
+[
+    { "title": "Preface", "url": "1st-ed/preface.md" },
+    { "title": "Table of Contents", "url": "1st-ed/up%20%26%20going/toc.md" },
+    { "title": "Foreword (by Jenn Lukas)", "url": "1st-ed/up%20%26%20going/foreword.md" },
+    { "title": "Preface", "url": "1st-ed/preface.md" },
+    { "title": "Chapter 1: Into Programming", "url": "1st-ed/up%20%26%20going/ch1.md" },
+    { "title": "Chapter 2: Into JavaScript", "url": "1st-ed/up%20%26%20going/ch2.md" },
+    { "title": "Chapter 3: Into YDKJS", "url": "1st-ed/up%20%26%20going/ch3.md" },
+    { "title": "Appendix A: Thank You's!", "url": "1st-ed/up%20%26%20going/apA.md" }
+]
