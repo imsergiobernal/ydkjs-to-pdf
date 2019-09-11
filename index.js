@@ -1,8 +1,10 @@
-const markdownpdf = require("markdown-pdf");
 const fs = require("fs");
 const path = require("path");
+
 const axios = require('axios');
 const express = require('express');
+const markdownpdf = require("markdown-pdf");
+const builds = new Builds();
 
 const { githubProvider } = require('./providers')(axios);
 
@@ -11,10 +13,9 @@ const app = express();
 async function cache(req, res, next) {
     try {
         const { sha: latestSha } = await githubProvider.getLatestCommit('getify', 'You-Dont-Know-JS');
-        const build = new Build(githubProvider);
         
-        if (build.upToDate(latestSha)) {
-            return res.sendFile(path.resolve(`./builds/${latestSha}/You-dont-know-JS.pdf`));
+        if (builds.isAvailable(latestSha)) {
+            res.sendFile(builds.latest());
         } else {
             req.sha = latestSha;
             next();
@@ -45,7 +46,8 @@ app.get('/', cache, async (req, res) => {
     try {
         const build = new Build(githubProvider);
         await build.exec(book);
-        return res.sendFile(path.resolve(`./builds/${req.latestSha}/You-dont-know-JS.pdf`));
+        await builds.add(build);
+        return res.sendFile(path.resolve(`./builds/${req.sha}/You-dont-know-JS.pdf`));
     } catch (err) {
         console.log(err);
         return res.status(500);
@@ -82,21 +84,76 @@ function Chapter(number, title, url) {
 
 
 
-function Build(githubProvider) {
-    this.githubProvider = githubProvider;
-    this.timestamp;
-    this.sha;
+function Builds() {
+    if (Builds.singleton) {
+        return Builds.singleton;
+    }
+
+    this.available = null;
+    this.building = false;
 
     if (!fs.existsSync('./builds')) {
-        fs.mkdir('./builds', (err) => {});
+        console.log('Folder builds does not exist, creating...');
+        try {
+            fs.mkdir('./builds', (err) => {
+                if (err) { throw err }
+                console.log('Folder builds has been created');
+            });
+        } catch (err) {
+            console.exception('An error ocurred while creating builds folder', err);
+        }
     };
+
+    
+    Builds.prototype.add = function(build) {
+        return new Promise((resolve, reject) => {
+            try {
+                building = true;
+                markdownpdf()
+                    .concat
+                    .from.strings(build.book.chapters.map(chapter => chapter.content))
+                    .to(`./builds/${build.sha}/You-dont-know-JS.pdf`, () => {
+                        console.log('Build saved');
+                        this.available = build.sha;
+                        resolve();
+                    });
+            } catch (err) {
+                console.exception('Could not add a Build to storage', err);
+                reject(err);
+            } finally {
+                building = false;
+            }
+        })
+    }
+        
+    Builds.prototype.isAvailable = function(sha) {
+        return this.available === sha;
+    }
+
+    Builds.prototype.latest = function() {
+        return path.resolve(`./builds/${this.available}/You-dont-know-JS.pdf`);
+    }
+    
+    Builds.singleton = this;
+    return Builds.singleton;
+}
+
+
+
+
+
+function Build(githubProvider) {
+    this.book;
+    this.githubProvider = githubProvider;
+    this.sha;
+    this.timestamp;
 
     Build.prototype.exec = async function(book) {
         await this.download(book);
         const latestCommit = await this.githubProvider.getLatestCommit('getify', 'You-Dont-Know-JS');
         this.sha = latestCommit.sha;
         this.timestamp = new Date();
-        await this.save(book);
+        this.book = book;
     }
 
     Build.prototype.download = async function(book) {
@@ -108,31 +165,5 @@ function Build(githubProvider) {
         }
         const results = await Promise.all(promises);
         results.forEach((result, i) => { book.chapters[i].content = result.data; });
-    }
-
-    Build.prototype.save = async function(book) {
-        await markdownpdf()
-            .concat
-            .from.strings(book.chapters.map(chapter => chapter.content))
-            .to(`./builds/${this.sha}/You-dont-know-JS.pdf`, () => console.log('Generacion terminada'));
-        
-        // await markdownpdf()
-        //     .concat
-        //     .from.path(`./builds/${this.sha}/data)
-        //     .to(`./builds/${this.sha}/You-dont-know-JS.pdf`, () => console.log('Generacion terminada'));
-        
-        fs.writeFile('./builds/latest', this.sha, (err) => {});
-    }
-
-    Build.prototype.upToDate = function(sha) {
-        return this.latest() === sha;
-    }
-
-    Build.prototype.latest = function() {
-        this.fileExists = (fs.existsSync('./builds/latest'));
-        if (!this.fileExists) {
-            fs.writeFileSync('./builds/latest', '');
-        }
-        return fs.readFileSync('./builds/latest', { encoding: 'utf8' });
     }
 }
